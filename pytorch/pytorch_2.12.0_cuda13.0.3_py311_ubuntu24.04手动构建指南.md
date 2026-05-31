@@ -1,14 +1,16 @@
 # PyTorch镜像构建
 Pytorch容器镜像是一个高复用的运行环境，AI软件开发和各种依赖显卡的软件运行环境都是基于Pytorch镜像构建的。
+构建这个镜像是为了作为whisper语音转文字服务的基座，要求python版本在3.8-3.11。
+截止2025年5月31日，目前pytorch最高版本为2.12.0，支持cuda最高版本是+cu130，即cuda13.0.3  。
 我不相信官方Pytorch镜像，我想自己构建才安心，方便后期修改和定制。构建过程如下：
 
 ```
-docker pull nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+docker pull nvidia/cuda:13.0.3-cudnn-devel-ubuntu24.04
 
 # 基础容器
-docker run -itd --name cuda128 --gpus all nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+docker run -itd --name cuda130 --gpus all nvidia/cuda:13.0.3-cudnn-devel-ubuntu24.04
 
-docker exec -it cuda128 bash
+docker exec -it cuda130 bash
 
 # 容器内查看显卡驱动，防止基座异常
 nvidia-smi
@@ -66,11 +68,11 @@ bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
 rm ~/miniconda3/miniconda.sh
 source ~/miniconda3/bin/activate    # 进入base环境
 conda init --all
-conda install python=3.12   # 默认python版本是最新，可以降级base环境的python到指定版本
+conda install python=3.11   # 默认python版本是最新，可以降级base环境的python到指定版本
 
 # 退出容器，重新进入
 exit
-docker exec -it cuda128 bash
+docker exec -it cuda130 bash
 
 # 虚拟环境
 mkdir ~/.pip
@@ -82,7 +84,7 @@ trusted-host = mirrors.aliyun.com
 --------------------------------------
 
 # 直接将包安装到base环境，不要单独创建虚拟环境，学习vllm的做法
-# conda create -n pytorch python=3.13
+# conda create -n pytorch python=3.11
 # conda activate pytorch
 
 # conda环境配置
@@ -96,8 +98,8 @@ conda install -y -c nvidia/label/cuda-11.8.0 cuda-runtime  # cuda11.8的动态�
 pip install -U pip setuptools wheel
 pip install uv
 
-# 安装cuda 12.8.1对应版本的pytorch2.8.0
-pip install torch==2.8.0+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+# 安装cuda 13.0.3对应版本的pytorch2.12.0
+pip install torch==2.12.0+cu130 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
 pip install packaging ninja cpufeature numpy openai
 
@@ -113,34 +115,34 @@ exit
 # 镜像制作
 
 ```
-docker stop cuda128
-docker commit cuda128  pytorch:2.8.0-cuda12.8.1-cp312-ubuntu24.04
+docker stop cuda130
+docker commit cuda130  pytorch:2.12.0-cuda13.0.3-cp311-ubuntu24.04
 
 ```
 
 # 测试
 ```
-docker rm -f cuda128
-docker run -itd --name torch28 --gpus all pytorch:2.8.0-cuda12.8.1-cp312-ubuntu24.04
-docker exec -it torch28 bash
+docker rm -f cuda130
+docker run -itd --name torch212 --gpus all pytorch:2.12.0-cuda13.0.3-cp311-ubuntu24.04
+docker exec -it torch212 bash
 python -c "import torch; print(torch.__version__)"
 python -c "import torchvision; print(torchvision.__version__)"
 exit
-docker rm -f torch28
+docker rm -f torch212
 ```
 
 将镜像上传到阿里云
 
 ```
 # 加标签
-docker tag pytorch:2.8.0-cuda12.8.1-cp312-ubuntu24.04 registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/pytorch:2.8.0-cuda12.8.1-cp312-ubuntu24.04
+docker tag pytorch:2.12.0-cuda13.0.3-cp311-ubuntu24.04 registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/pytorch:2.12.0-cuda13.0.3-cp311-ubuntu24.04
 
 # 上传镜像
-docker push registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/pytorch:2.8.0-cuda12.8.1-cp312-ubuntu24.04
+docker push registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/pytorch:2.12.0-cuda13.0.3-cp311-ubuntu24.04
 ```
 
 # 保存为tar包
 ```
-docker save -o pytorch__2.8.0-cuda12.8.1-cp312-ubuntu24.04.tar pytorch:2.8.0-cuda12.8.1-cp312-ubuntu24.04
+docker save -o pytorch__2.12.0-cuda13.0.3-cp311-ubuntu24.04.tar pytorch:2.12.0-cuda13.0.3-cp311-ubuntu24.04
 
 ```

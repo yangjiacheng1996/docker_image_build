@@ -53,21 +53,13 @@ pip install ./flash_attn-2.8.3+cu12torch2.8cxx11abiFALSE-cp312-cp312-linux_x86_6
 rm -f ./flash_attn-2.8.3+cu12torch2.8cxx11abiFALSE-cp312-cp312-linux_x86_64.whl
 
 # 安装minerU，需要带上torch版本，否则它会下载最新的2.9而不是2.8
-uv pip install mineru[all] torch==2.8.0+cu128 -i https://pypi.tuna.tsinghua.edu.cn/simple --system
+uv pip install mineru[all] torch==2.8.0+cu128 vllm==0.10.2 --system
 
-# 检查vllm和transformers版本，满足minerU对底层依赖组件的版本要求
-pip list | grep vllm
-vllm    0.11.0
 
-pip list | grep transformers
-transformers    4.57.6
-
-pip list | grep torch
-torch    2.8.0+cu128
-
-# 降级vllm 到0.10.2版本。
 # 因为官方要求>0.10.1, <12 ，但是vllm==0.11.x需要cuda12.9，这与flash-attn版本要求相违背，所以降低版本到0.10.2
-pip install vllm==0.10.2
+pip list | grep vllm
+pip list | grep mineru
+pip list | grep torch
 
 # 设置系统环境变量，指向国内HuggingFace镜像站点
 export HF_ENDPOINT=https://hf-mirror.com
@@ -78,6 +70,11 @@ mineru-vllm-server --port 30000
 # 默认使用当前剩余显存的50%显存，如果想要降低显存使用，可采用如下命令
 mineru-vllm-server --port 30000 --gpu-memory-utilization 0.3
 
+# 测试
+docker cp xxx.pdf  torch28:/opt
+docker exec -it torch28 bash
+mineru -p /opt/xxx.pdf  -o /opt  -b vlm-http-client -u http://127.0.0.1:30000 -m ocr
+rm -rf /opt/xxx/  /opt/xxx.pdf
 
 # 编写启动脚本，智能识别显卡剩余显存，最多用12GB显存，适用于A100等大显存显卡。
 vim /opt/entrypoint.sh
@@ -147,12 +144,13 @@ exit
 docker stop torch28
 
 # 将手动构建的容器提交为一个镜像
-docker commit  torch28  mineru:base-3.1.2  
+docker commit  torch28  mineru:base-3.2.1  
+docker rm -f torch28 
 
 # 编写一个Dockerfile
 vim Dockerfile
 -------------------------------------
-FROM mineru:base-3.1.2
+FROM mineru:base-3.2.1  
 
 USER root
 
@@ -169,24 +167,29 @@ CMD ["--port", "30000"]
 -------------------------------------
 
 # 构建镜像
-docker build . -t mineru:vllm-server-3.1.2
+docker build . -t mineru:vllm-server-3.2.1
+docker rmi -f mineru:base-3.2.1
 
 # 导出
-docker save -o mineru__vllm-server-3.1.2.tar mineru:vllm-server-3.1.2
+docker save -o mineru__vllm-server-3.2.1.tar mineru:vllm-server-3.2.1
 
 # 导入
-docker load -i mineru__vllm-server-3.1.2.tar
+docker load -i mineru__vllm-server-3.2.1.tar
 
 # 启动
-docker run -d --name mineru-vllm-server --restart always --gpus all -p 30000:30000 mineru:vllm-server-3.1.2
+docker run -d --name mineru-vllm-server --restart always --gpus all -p 30000:30000 mineru:vllm-server-3.2.1
 
+# 查看带外日志
+docker logs mineru-vllm-server -f 
+
+docker rm -f mineru-vllm-server
 ```
 
 # 上传阿里云
 ```
-docker tag mineru:vllm-server-3.1.2  registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/mineru:vllm-server-3.1.2
+docker tag mineru:vllm-server-3.2.1  registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/mineru:vllm-server-3.2.1
 
-docker push registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/mineru:vllm-server-3.1.2
+docker push registry.cn-shanghai.aliyuncs.com/yangjiacheng1996/mineru:vllm-server-3.2.1
 ```
 
 # 用户使用
@@ -200,7 +203,7 @@ irm https://astral.sh/uv/install.ps1 | iex       # Windows (PowerShell)
 uv pip install mineru
 
 # 进行pdf转换
-mineru -p /path/to/your.pdf  -o /path/to/output/dir  -b vlm-http-client -u http://172.27.213.31:30000 -m ocr
+mineru -p /path/to/your.pdf  -o /path/to/output/dir  -b vlm-http-client -u http://127.0.0.1:30000 -m ocr
 ````
 
 

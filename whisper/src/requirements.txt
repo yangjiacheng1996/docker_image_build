@@ -1,0 +1,8 @@
+# server 依赖
+fastapi
+uvicorn
+pydantic
+python-multipart
+
+# client 依赖
+requests
